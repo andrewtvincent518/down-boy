@@ -46,7 +46,7 @@ function setUserSites(userId, sites) {
   saveData(data);
 }
 
-async function checkSite(siteUrl) {
+async function checkSite(siteUrl, method = 'HEAD') {
   return new Promise((resolve) => {
     const startTime = Date.now();
     
@@ -58,11 +58,25 @@ async function checkSite(siteUrl) {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
-        method: 'HEAD',
+        method: method,
         timeout: TIMEOUT_MS,
-        rejectUnauthorized: false
+        rejectUnauthorized: false,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        }
       }, (res) => {
+        // Consume response data to free up memory
+        res.resume();
+        
         const responseTime = Date.now() - startTime;
+        
+        // If HEAD request got 403/405, retry with GET
+        if (method === 'HEAD' && (res.statusCode === 403 || res.statusCode === 405)) {
+          resolve(checkSite(siteUrl, 'GET'));
+          return;
+        }
+        
         resolve({
           status: res.statusCode < 400 ? 'up' : 'down',
           statusCode: res.statusCode,
@@ -82,6 +96,11 @@ async function checkSite(siteUrl) {
       });
       
       req.on('error', (err) => {
+        // If HEAD request failed entirely, retry with GET
+        if (method === 'HEAD') {
+          resolve(checkSite(siteUrl, 'GET'));
+          return;
+        }
         resolve({
           status: 'error',
           statusCode: null,
