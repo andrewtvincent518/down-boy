@@ -175,7 +175,7 @@ const server = http.createServer(async (req, res) => {
   
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-User-Id');
   
   if (req.method === 'OPTIONS') {
@@ -237,6 +237,60 @@ const server = http.createServer(async (req, res) => {
     setUserSites(userId, sites);
     res.writeHead(204);
     res.end();
+    return;
+  }
+  
+  // Update site name
+  if (url.pathname.startsWith('/api/sites/') && req.method === 'PUT') {
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
+    try {
+      const id = parseInt(url.pathname.split('/')[3]);
+      const { name } = await parseBody(req);
+      let sites = getUserSites(userId);
+      const site = sites.find(s => s.id === id);
+      if (site && name) {
+        site.name = name;
+        setUserSites(userId, sites);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(site));
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Site not found' }));
+      }
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid request' }));
+    }
+    return;
+  }
+  
+  // Reorder sites
+  if (url.pathname === '/api/sites/reorder' && req.method === 'POST') {
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
+    try {
+      const { siteIds } = await parseBody(req);
+      let sites = getUserSites(userId);
+      
+      // Reorder based on provided IDs
+      const reordered = siteIds
+        .map(id => sites.find(s => s.id === id))
+        .filter(Boolean);
+      
+      setUserSites(userId, reordered);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid request' }));
+    }
     return;
   }
   

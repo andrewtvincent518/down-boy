@@ -327,6 +327,32 @@
       padding: 20px;
       position: relative;
       overflow: hidden;
+      cursor: grab;
+    }
+    
+    .site-card.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+    
+    .site-card.drag-over {
+      border-style: dashed !important;
+      transform: scale(1.02);
+    }
+    
+    .drag-handle {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      font-size: 16px;
+      color: #4b5563;
+      cursor: grab;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    
+    .site-card:hover .drag-handle {
+      opacity: 1;
     }
     
     .site-icon {
@@ -338,17 +364,64 @@
     
     .site-info {
       margin-bottom: 16px;
+      margin-left: 24px;
+    }
+    
+    .site-name-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
     }
     
     .site-info h3 {
-      margin: 0 0 4px 0;
+      margin: 0;
       font-size: 18px;
       font-weight: 700;
       color: #e2e8f0;
-      max-width: calc(100% - 50px);
+      max-width: calc(100% - 80px);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    
+    .btn-edit-name {
+      background: none;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: all 0.2s;
+    }
+    
+    .site-card:hover .btn-edit-name {
+      opacity: 1;
+    }
+    
+    .btn-edit-name:hover {
+      background: rgba(255,255,255,0.1);
+      color: #e2e8f0;
+    }
+    
+    .site-name-input {
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 700;
+      background: #0d0d1a;
+      border: 1px solid #6366f1;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 4px 8px;
+      width: 100%;
+      max-width: 200px;
+    }
+    
+    .site-name-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
     }
     
     .site-info p {
@@ -683,18 +756,30 @@
       
       empty.style.display = 'none';
       
-      grid.innerHTML = sites.map(site => {
+      grid.innerHTML = sites.map((site, index) => {
         const config = statusConfig[site.status] || statusConfig.unknown;
         const isChecking = checking.has(site.id);
         
         return `
           <div class="site-card ${config.pulse && !isChecking ? 'pulse-alert' : ''}" 
-               style="background: ${config.bg}; border: 2px solid ${config.border}; color: ${config.border};">
+               style="background: ${config.bg}; border: 2px solid ${config.border}; color: ${config.border};"
+               draggable="true"
+               data-id="${site.id}"
+               data-index="${index}"
+               ondragstart="handleDragStart(event)"
+               ondragend="handleDragEnd(event)"
+               ondragover="handleDragOver(event)"
+               ondragleave="handleDragLeave(event)"
+               ondrop="handleDrop(event)">
+            <div class="drag-handle">⋮⋮</div>
             <div class="site-icon ${isChecking ? 'sniffing' : ''}">
               ${isChecking ? '🔍' : config.icon}
             </div>
             <div class="site-info">
-              <h3>${escapeHtml(site.name)}</h3>
+              <div class="site-name-wrapper" id="name-wrapper-${site.id}">
+                <h3 id="name-display-${site.id}">${escapeHtml(site.name)}</h3>
+                <button class="btn btn-edit-name" onclick="startEditName(${site.id}, event)" title="Edit name">✏️</button>
+              </div>
               <p>${escapeHtml(site.url)}</p>
             </div>
             <div class="status-badge" style="color: ${config.text};">
@@ -720,6 +805,128 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+    
+    // Edit site name
+    function startEditName(siteId, event) {
+      event.stopPropagation();
+      const site = sites.find(s => s.id === siteId);
+      if (!site) return;
+      
+      const wrapper = document.getElementById(`name-wrapper-${siteId}`);
+      wrapper.innerHTML = `
+        <input type="text" 
+               class="site-name-input" 
+               id="name-input-${siteId}" 
+               value="${escapeHtml(site.name)}" 
+               maxlength="50"
+               onkeydown="handleNameKeydown(event, ${siteId})"
+               onblur="saveName(${siteId})">
+      `;
+      
+      const input = document.getElementById(`name-input-${siteId}`);
+      input.focus();
+      input.select();
+    }
+    
+    function handleNameKeydown(event, siteId) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        saveName(siteId);
+      } else if (event.key === 'Escape') {
+        render(); // Cancel and re-render
+      }
+    }
+    
+    async function saveName(siteId) {
+      const input = document.getElementById(`name-input-${siteId}`);
+      if (!input) return;
+      
+      const newName = input.value.trim();
+      const site = sites.find(s => s.id === siteId);
+      
+      if (!newName || newName === site.name) {
+        render();
+        return;
+      }
+      
+      try {
+        await api(`/api/sites/${siteId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name: newName })
+        });
+        site.name = newName;
+        render();
+      } catch (err) {
+        console.error('Failed to update name:', err);
+        render();
+      }
+    }
+    
+    // Drag and drop reordering
+    let draggedId = null;
+    
+    function handleDragStart(event) {
+      draggedId = parseInt(event.target.dataset.id);
+      event.target.classList.add('dragging');
+      event.dataTransfer.effectAllowed = 'move';
+    }
+    
+    function handleDragEnd(event) {
+      event.target.classList.remove('dragging');
+      document.querySelectorAll('.site-card').forEach(card => {
+        card.classList.remove('drag-over');
+      });
+      draggedId = null;
+    }
+    
+    function handleDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      
+      const card = event.target.closest('.site-card');
+      if (card && parseInt(card.dataset.id) !== draggedId) {
+        card.classList.add('drag-over');
+      }
+    }
+    
+    function handleDragLeave(event) {
+      const card = event.target.closest('.site-card');
+      if (card) {
+        card.classList.remove('drag-over');
+      }
+    }
+    
+    async function handleDrop(event) {
+      event.preventDefault();
+      
+      const targetCard = event.target.closest('.site-card');
+      if (!targetCard) return;
+      
+      const targetId = parseInt(targetCard.dataset.id);
+      if (targetId === draggedId) return;
+      
+      // Find indices
+      const fromIndex = sites.findIndex(s => s.id === draggedId);
+      const toIndex = sites.findIndex(s => s.id === targetId);
+      
+      if (fromIndex === -1 || toIndex === -1) return;
+      
+      // Reorder locally
+      const [movedSite] = sites.splice(fromIndex, 1);
+      sites.splice(toIndex, 0, movedSite);
+      
+      // Save to server
+      try {
+        await api('/api/sites/reorder', {
+          method: 'POST',
+          body: JSON.stringify({ siteIds: sites.map(s => s.id) })
+        });
+      } catch (err) {
+        console.error('Failed to save order:', err);
+      }
+      
+      render();
     }
     
     // Auto-refresh functions

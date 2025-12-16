@@ -30,6 +30,8 @@ Down Boy is a simple, self-hosted URL monitoring tool that checks if your sites 
 - ✅ Monitor unlimited URLs
 - ✅ Per-user site lists with simple name-based identification  
 - ✅ Auto-refresh with configurable intervals (1-30 minutes)
+- ✅ Editable display names for monitored sites
+- ✅ Drag-and-drop reordering
 - ✅ 10-second timeout detection for hanging services
 - ✅ Response time tracking
 - ✅ HTTP status code visibility
@@ -169,6 +171,22 @@ curl -X POST http://localhost:3000/api/sites \
 ```bash
 curl -X DELETE http://localhost:3000/api/sites/SITE_ID \
   -H "X-User-Id: your-username"
+```
+
+#### Update Site Name
+```bash
+curl -X PUT http://localhost:3000/api/sites/SITE_ID \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: your-username" \
+  -d '{"name": "New Display Name"}'
+```
+
+#### Reorder Sites
+```bash
+curl -X POST http://localhost:3000/api/sites/reorder \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: your-username" \
+  -d '{"siteIds": [123, 456, 789]}'
 ```
 
 #### Check All User's Sites

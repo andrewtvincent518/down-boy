@@ -6,34 +6,9 @@
     "scruffy": {
       "sites": [
         {
-          "id": 1765918344792,
-          "url": "https://github.com",
-          "name": "github.com"
-        },
-        {
-          "id": 1765918359027,
-          "url": "https://wikipedia.org",
-          "name": "wikipedia.org"
-        },
-        {
-          "id": 1765918364663,
-          "url": "https://archive.org",
-          "name": "archive.org"
-        },
-        {
-          "id": 1765918390089,
-          "url": "https://stackoverflow.com/",
-          "name": "stackoverflow.com"
-        },
-        {
-          "id": 1765920596434,
-          "url": "http://petsmart.com",
-          "name": "petsmart.com"
-        },
-        {
-          "id": 1765920823200,
-          "url": "https://amazon.com",
-          "name": "amazon.com"
+          "id": 1765922306251,
+          "url": "https://footprints.alamo.edu",
+          "name": "footprints.alamo.edu"
         }
       ]
     }
