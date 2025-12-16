@@ -8,7 +8,7 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org/)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-Zero-blue.svg)](#)
 
-[Features](#features) • [Installation](#installation) • [Usage](#usage) • [API](#api-reference) • [Configuration](#configuration) • [Contributing](#contributing)
+[Features](#features) • [Screenshot](#screenshot) • [Installation](#installation) • [Usage](#usage) • [API](#api-reference) • [Configuration](#configuration) • [Contributing](#contributing)
 
 </div>
 
@@ -36,6 +36,12 @@ Down Boy is a simple, self-hosted URL monitoring tool that checks if your sites 
 - ✅ REST API for scripting and automation
 - ✅ Works with self-signed SSL certificates
 
+## Screenshot
+
+<div align="center">
+<img src="screenshot.png" alt="Down Boy Screenshot" width="800">
+</div>
+
 ## Installation
 
 ### Prerequisites
@@ -46,7 +52,7 @@ Down Boy is a simple, self-hosted URL monitoring tool that checks if your sites 
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/down-boy.git
+git clone https://github.com/username/down-boy.git
 cd down-boy
 
 # Start the server
@@ -135,33 +141,33 @@ All endpoints (except `/api/check` and `/api/users`) require the `X-User-Id` hea
 ```bash
 curl -X POST http://localhost:3000/api/check \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com"}'
+  -d '{"url": "https://your-site.com"}'
 ```
 
 #### Get User's Sites
 ```bash
 curl http://localhost:3000/api/sites \
-  -H "X-User-Id: andrew"
+  -H "X-User-Id: your-username"
 ```
 
 #### Add a Site
 ```bash
 curl -X POST http://localhost:3000/api/sites \
   -H "Content-Type: application/json" \
-  -H "X-User-Id: andrew" \
-  -d '{"url": "https://example.com", "name": "Example"}'
+  -H "X-User-Id: your-username" \
+  -d '{"url": "https://your-site.com", "name": "My Site"}'
 ```
 
 #### Delete a Site
 ```bash
 curl -X DELETE http://localhost:3000/api/sites/SITE_ID \
-  -H "X-User-Id: andrew"
+  -H "X-User-Id: your-username"
 ```
 
 #### Check All User's Sites
 ```bash
 curl http://localhost:3000/api/check-all \
-  -H "X-User-Id: andrew"
+  -H "X-User-Id: your-username"
 ```
 
 #### List All Users
@@ -197,12 +203,12 @@ Site data is stored in `sites-data.json`:
 ```json
 {
   "users": {
-    "andrew": {
+    "username": {
       "sites": [
         {
           "id": 1702847293847,
-          "url": "https://example.com",
-          "name": "Example"
+          "url": "https://your-site.com",
+          "name": "My Site"
         }
       ]
     }
@@ -231,10 +237,6 @@ Contributions are welcome! Feel free to:
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-Built with ☕ by the IT Network Operations team for quick site monitoring without the enterprise overhead.
 
 ---
 

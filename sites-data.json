@@ -1,0 +1,46 @@
+{
+  "users": {
+    "andrew": {
+      "sites": []
+    },
+    "scruffy": {
+      "sites": [
+        {
+          "id": 1765918344792,
+          "url": "https://github.com",
+          "name": "github.com"
+        },
+        {
+          "id": 1765918353881,
+          "url": "https://httpstat.us/200",
+          "name": "httpstat.us"
+        },
+        {
+          "id": 1765918359027,
+          "url": "https://wikipedia.org",
+          "name": "wikipedia.org"
+        },
+        {
+          "id": 1765918364663,
+          "url": "https://archive.org",
+          "name": "archive.org"
+        },
+        {
+          "id": 1765918390089,
+          "url": "https://stackoverflow.com/",
+          "name": "stackoverflow.com"
+        },
+        {
+          "id": 1765918405228,
+          "url": "https://httpstat.us/500",
+          "name": "httpstat.us"
+        },
+        {
+          "id": 1765918420311,
+          "url": "https://httpstat.us/200?sleep=15000",
+          "name": "httpstat.us"
+        }
+      ]
+    }
+  }
+}
