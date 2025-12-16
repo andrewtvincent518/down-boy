@@ -129,6 +129,7 @@ sudo systemctl start downboy
 | 🐕 **GOOD BOY** | Site is responding (HTTP < 400) |
 | 🦴 **DOWN!** | Site returned error (HTTP ≥ 400) |
 | 💤 **TIMEOUT** | No response within 10 seconds |
+| 🚫 **BLOCKED** | Site has bot protection (HTTP 429) |
 | ❌ **ERROR** | Connection failed |
 
 ## API Reference

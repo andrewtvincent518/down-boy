@@ -11,11 +11,6 @@
           "name": "github.com"
         },
         {
-          "id": 1765918353881,
-          "url": "https://httpstat.us/200",
-          "name": "httpstat.us"
-        },
-        {
           "id": 1765918359027,
           "url": "https://wikipedia.org",
           "name": "wikipedia.org"
@@ -31,19 +26,14 @@
           "name": "stackoverflow.com"
         },
         {
-          "id": 1765918405228,
-          "url": "https://httpstat.us/500",
-          "name": "httpstat.us"
+          "id": 1765920596434,
+          "url": "http://petsmart.com",
+          "name": "petsmart.com"
         },
         {
-          "id": 1765918420311,
-          "url": "https://httpstat.us/200?sleep=15000",
-          "name": "httpstat.us"
-        },
-        {
-          "id": 1765919146441,
-          "url": "https://stackoverflow.com/questions",
-          "name": "stackoverflow.com"
+          "id": 1765920823200,
+          "url": "https://amazon.com",
+          "name": "amazon.com"
         }
       ]
     }

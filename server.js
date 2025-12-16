@@ -106,8 +106,16 @@ async function checkSite(siteUrl, method = 'GET', redirectCount = 0) {
           return;
         }
         
+        // Determine status based on response code
+        let status = 'up';
+        if (res.statusCode === 429) {
+          status = 'blocked';
+        } else if (res.statusCode >= 400) {
+          status = 'down';
+        }
+        
         resolve({
-          status: res.statusCode < 400 ? 'up' : 'down',
+          status,
           statusCode: res.statusCode,
           responseTime,
           lastChecked: new Date().toISOString()
