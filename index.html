@@ -184,6 +184,8 @@
       background: rgba(99, 102, 241, 0.1);
       border: 1px solid rgba(99, 102, 241, 0.3);
       border-radius: 12px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     
     .user-bar .user-info {
@@ -213,6 +215,57 @@
       border: 1px solid rgba(239, 68, 68, 0.4);
       border-radius: 8px;
       color: #f87171;
+    }
+    
+    .auto-refresh-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+    
+    .auto-refresh-controls select {
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      background: #0d0d1a;
+      border: 1px solid #3b3b5c;
+      border-radius: 6px;
+      color: #e2e8f0;
+      cursor: pointer;
+    }
+    
+    .auto-refresh-controls select:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    
+    .btn-auto-toggle {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 600;
+      border: 1px solid;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-auto-toggle.off {
+      background: rgba(75, 85, 99, 0.2);
+      border-color: rgba(75, 85, 99, 0.4);
+      color: #9ca3af;
+    }
+    
+    .btn-auto-toggle.on {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+    }
+    
+    .next-check {
+      color: #64748b;
+      font-size: 11px;
     }
     
     .form-row {
@@ -411,6 +464,18 @@
         <div class="user-avatar" id="userAvatar">A</div>
         <span>Watching as <strong id="displayName">User</strong></span>
       </div>
+      <div class="auto-refresh-controls">
+        <span>Auto-check:</span>
+        <select id="intervalSelect" onchange="updateInterval()">
+          <option value="60000">1 min</option>
+          <option value="300000" selected>5 min</option>
+          <option value="600000">10 min</option>
+          <option value="900000">15 min</option>
+          <option value="1800000">30 min</option>
+        </select>
+        <button class="btn btn-auto-toggle off" id="autoToggle" onclick="toggleAutoRefresh()">OFF</button>
+        <span class="next-check" id="nextCheck"></span>
+      </div>
       <button class="btn btn-logout" onclick="logout()">Switch User</button>
     </div>
 
@@ -437,6 +502,11 @@
     let sites = [];
     let checking = new Set();
     let currentUser = null;
+    let autoRefreshInterval = null;
+    let autoRefreshEnabled = false;
+    let autoRefreshMs = 300000; // 5 minutes default
+    let nextCheckTime = null;
+    let countdownInterval = null;
     
     const statusConfig = {
       up: { bg: '#0a2f1c', border: '#22c55e', text: '#4ade80', label: 'GOOD BOY', icon: '🐕', pulse: false },
@@ -478,6 +548,7 @@
       
       showApp(name);
       loadSites();
+      loadAutoRefreshPrefs();
     }
     
     function logout() {
@@ -485,6 +556,13 @@
       localStorage.removeItem('downboy-displayname');
       currentUser = null;
       sites = [];
+      
+      // Stop auto-refresh
+      stopAutoRefresh();
+      autoRefreshEnabled = false;
+      const btn = document.getElementById('autoToggle');
+      btn.textContent = 'OFF';
+      btn.className = 'btn btn-auto-toggle off';
       
       document.getElementById('mainApp').classList.add('hidden');
       document.getElementById('loginModal').classList.remove('hidden');
@@ -506,6 +584,7 @@
         currentUser = savedUser;
         showApp(savedName);
         loadSites();
+        loadAutoRefreshPrefs();
       }
     }
     
@@ -641,6 +720,105 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+    
+    // Auto-refresh functions
+    function toggleAutoRefresh() {
+      autoRefreshEnabled = !autoRefreshEnabled;
+      const btn = document.getElementById('autoToggle');
+      
+      if (autoRefreshEnabled) {
+        btn.textContent = 'ON';
+        btn.className = 'btn btn-auto-toggle on';
+        startAutoRefresh();
+      } else {
+        btn.textContent = 'OFF';
+        btn.className = 'btn btn-auto-toggle off';
+        stopAutoRefresh();
+      }
+      
+      // Save preference
+      localStorage.setItem('downboy-autorefresh', autoRefreshEnabled);
+      localStorage.setItem('downboy-interval', autoRefreshMs);
+    }
+    
+    function updateInterval() {
+      autoRefreshMs = parseInt(document.getElementById('intervalSelect').value);
+      localStorage.setItem('downboy-interval', autoRefreshMs);
+      
+      // Restart if already running
+      if (autoRefreshEnabled) {
+        stopAutoRefresh();
+        startAutoRefresh();
+      }
+    }
+    
+    function startAutoRefresh() {
+      // Run check immediately? No, let user trigger first check
+      scheduleNextCheck();
+    }
+    
+    function scheduleNextCheck() {
+      if (autoRefreshInterval) clearTimeout(autoRefreshInterval);
+      if (countdownInterval) clearInterval(countdownInterval);
+      
+      nextCheckTime = Date.now() + autoRefreshMs;
+      updateCountdown();
+      
+      countdownInterval = setInterval(updateCountdown, 1000);
+      
+      autoRefreshInterval = setTimeout(async () => {
+        if (autoRefreshEnabled && sites.length > 0) {
+          await checkAllSites();
+          scheduleNextCheck();
+        }
+      }, autoRefreshMs);
+    }
+    
+    function stopAutoRefresh() {
+      if (autoRefreshInterval) {
+        clearTimeout(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+      nextCheckTime = null;
+      document.getElementById('nextCheck').textContent = '';
+    }
+    
+    function updateCountdown() {
+      if (!nextCheckTime) return;
+      
+      const remaining = Math.max(0, nextCheckTime - Date.now());
+      const seconds = Math.floor(remaining / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      
+      const display = minutes > 0 
+        ? `Next: ${minutes}m ${secs}s`
+        : `Next: ${secs}s`;
+      
+      document.getElementById('nextCheck').textContent = display;
+    }
+    
+    function loadAutoRefreshPrefs() {
+      const savedEnabled = localStorage.getItem('downboy-autorefresh') === 'true';
+      const savedInterval = localStorage.getItem('downboy-interval');
+      
+      if (savedInterval) {
+        autoRefreshMs = parseInt(savedInterval);
+        document.getElementById('intervalSelect').value = savedInterval;
+      }
+      
+      if (savedEnabled) {
+        autoRefreshEnabled = true;
+        const btn = document.getElementById('autoToggle');
+        btn.textContent = 'ON';
+        btn.className = 'btn btn-auto-toggle on';
+        startAutoRefresh();
+      }
     }
     
     // Event listeners

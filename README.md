@@ -29,6 +29,7 @@ Down Boy is a simple, self-hosted URL monitoring tool that checks if your sites 
 
 - ✅ Monitor unlimited URLs
 - ✅ Per-user site lists with simple name-based identification  
+- ✅ Auto-refresh with configurable intervals (1-30 minutes)
 - ✅ 10-second timeout detection for hanging services
 - ✅ Response time tracking
 - ✅ HTTP status code visibility
@@ -121,6 +122,11 @@ sudo systemctl start downboy
 2. Enter your name when prompted (creates your personal watchlist)
 3. Add URLs to monitor
 4. Click **CHECK ALL** or check individual sites
+5. Enable **Auto-check** and set your preferred interval (1-30 min)
+
+### Auto-Refresh
+
+Toggle auto-check ON to automatically re-check all sites at your chosen interval. Settings are saved per-browser, so your preferences persist across sessions.
 
 ### Status Indicators
 
@@ -220,10 +226,10 @@ Site data is stored in `sites-data.json`:
 ## Roadmap
 
 - [ ] Authentication (optional password protection)
-- [ ] Scheduled automatic checks
 - [ ] Email/Slack notifications for downtime
 - [ ] Response time history graphs
 - [ ] Docker container
+- [ ] Deep Check mode for bot-protected sites (Puppeteer)
 
 ## Contributing
 
