@@ -6,11 +6,45 @@ const path = require('path');
 
 const PORT = 3000;
 const TIMEOUT_MS = 10000;
+const DATA_FILE = path.join(__dirname, 'sites-data.json');
 
-// Sites to monitor - add yours here
-let sites = [
-  { id: 1, url: 'https://footprints.alamo.edu', name: 'Footprints' }
-];
+// Load or initialize data store
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    }
+  } catch (err) {
+    console.error('Error loading data file:', err.message);
+  }
+  return { users: {} };
+}
+
+function saveData(data) {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error('Error saving data file:', err.message);
+  }
+}
+
+function getUserSites(userId) {
+  const data = loadData();
+  if (!data.users[userId]) {
+    data.users[userId] = { sites: [] };
+    saveData(data);
+  }
+  return data.users[userId].sites;
+}
+
+function setUserSites(userId, sites) {
+  const data = loadData();
+  if (!data.users[userId]) {
+    data.users[userId] = {};
+  }
+  data.users[userId].sites = sites;
+  saveData(data);
+}
 
 async function checkSite(siteUrl) {
   return new Promise((resolve) => {
@@ -26,7 +60,7 @@ async function checkSite(siteUrl) {
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'HEAD',
         timeout: TIMEOUT_MS,
-        rejectUnauthorized: false // Allow self-signed certs (common in internal sites)
+        rejectUnauthorized: false
       }, (res) => {
         const responseTime = Date.now() - startTime;
         resolve({
@@ -70,13 +104,28 @@ async function checkSite(siteUrl) {
   });
 }
 
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-User-Id');
   
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -84,61 +133,82 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   
+  // Get user ID from header
+  const userId = req.headers['x-user-id'];
+  
   // API Routes
   if (url.pathname === '/api/sites' && req.method === 'GET') {
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
+    const sites = getUserSites(userId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(sites));
     return;
   }
   
   if (url.pathname === '/api/sites' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        const { url: siteUrl, name } = JSON.parse(body);
-        const newSite = {
-          id: Date.now(),
-          url: siteUrl,
-          name: name || new URL(siteUrl).hostname
-        };
-        sites.push(newSite);
-        res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(newSite));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid JSON' }));
-      }
-    });
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
+    try {
+      const { url: siteUrl, name } = await parseBody(req);
+      const sites = getUserSites(userId);
+      const newSite = {
+        id: Date.now(),
+        url: siteUrl,
+        name: name || new URL(siteUrl).hostname
+      };
+      sites.push(newSite);
+      setUserSites(userId, sites);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(newSite));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid JSON' }));
+    }
     return;
   }
   
   if (url.pathname.startsWith('/api/sites/') && req.method === 'DELETE') {
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
     const id = parseInt(url.pathname.split('/')[3]);
+    let sites = getUserSites(userId);
     sites = sites.filter(s => s.id !== id);
+    setUserSites(userId, sites);
     res.writeHead(204);
     res.end();
     return;
   }
   
   if (url.pathname === '/api/check' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-      try {
-        const { url: siteUrl } = JSON.parse(body);
-        const result = await checkSite(siteUrl);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      }
-    });
+    try {
+      const { url: siteUrl } = await parseBody(req);
+      const result = await checkSite(siteUrl);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    }
     return;
   }
   
   if (url.pathname === '/api/check-all' && req.method === 'GET') {
+    if (!userId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'X-User-Id header required' }));
+      return;
+    }
+    const sites = getUserSites(userId);
     const results = await Promise.all(
       sites.map(async (site) => ({
         ...site,
@@ -147,6 +217,18 @@ const server = http.createServer(async (req, res) => {
     );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(results));
+    return;
+  }
+  
+  // Get list of all users (for admin/visibility)
+  if (url.pathname === '/api/users' && req.method === 'GET') {
+    const data = loadData();
+    const users = Object.keys(data.users).map(id => ({
+      id,
+      siteCount: data.users[id].sites?.length || 0
+    }));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(users));
     return;
   }
   
@@ -177,6 +259,8 @@ server.listen(PORT, () => {
   ╠═══════════════════════════════════════════╣
   ║  Server running at:                       ║
   ║  http://localhost:${PORT}                     ║
+  ║                                           ║
+  ║  Data stored in: sites-data.json          ║
   ╚═══════════════════════════════════════════╝
   `);
 });

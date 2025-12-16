@@ -31,6 +31,11 @@
       75% { transform: rotate(3deg); }
     }
     
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
     .pulse-alert {
       animation: pulse-glow 1.5s ease-in-out infinite;
     }
@@ -41,6 +46,7 @@
     
     .site-card {
       transition: all 0.3s ease;
+      animation: fadeIn 0.3s ease;
     }
     
     .site-card:hover {
@@ -73,6 +79,72 @@
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
     }
     
+    /* Login Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .modal {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border: 2px solid #3b3b5c;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+    
+    .modal h2 {
+      font-family: "Russo One", sans-serif;
+      font-size: 28px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .modal p {
+      color: #64748b;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+    
+    .modal input {
+      width: 100%;
+      padding: 14px 18px;
+      font-size: 16px;
+      font-family: inherit;
+      background: #0d0d1a;
+      border: 2px solid #2d2d4a;
+      border-radius: 12px;
+      color: #e2e8f0;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    
+    .modal button {
+      width: 100%;
+      padding: 14px 24px;
+      font-size: 16px;
+      font-family: inherit;
+      font-weight: 600;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      cursor: pointer;
+    }
+    
     .header {
       text-align: center;
       margin-bottom: 32px;
@@ -100,6 +172,47 @@
       font-size: 14px;
       letter-spacing: 3px;
       text-transform: uppercase;
+    }
+    
+    .user-bar {
+      max-width: 900px;
+      margin: 0 auto 24px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 12px;
+    }
+    
+    .user-bar .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+    
+    .user-bar .user-avatar {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    
+    .user-bar .btn-logout {
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: inherit;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 8px;
+      color: #f87171;
     }
     
     .form-row {
@@ -267,36 +380,63 @@
     .footer p {
       margin: 0 0 4px 0;
     }
+    
+    .hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="header-icon">🐕‍🦺</div>
-    <h1>DOWN BOY</h1>
-    <p>URL Watchdog • Sniffing out downtime</p>
+  <!-- Login Modal -->
+  <div class="modal-overlay" id="loginModal">
+    <div class="modal">
+      <div style="font-size: 48px; margin-bottom: 16px;">🐕‍🦺</div>
+      <h2>DOWN BOY</h2>
+      <p>Enter your name to get started.<br>Your watchlist will be saved.</p>
+      <input type="text" id="usernameInput" placeholder="Your name (e.g., Andrew)" maxlength="30" />
+      <button class="btn" onclick="login()">Start Watching</button>
+    </div>
   </div>
 
-  <div class="form-row">
-    <input type="text" id="urlInput" placeholder="Enter URL to watch..." />
-    <button class="btn btn-add" onclick="addSite()">+ ADD</button>
-    <button class="btn btn-check-all" id="checkAllBtn" onclick="checkAllSites()">🐕 CHECK ALL</button>
-  </div>
+  <!-- Main App -->
+  <div id="mainApp" class="hidden">
+    <div class="header">
+      <div class="header-icon">🐕‍🦺</div>
+      <h1>DOWN BOY</h1>
+      <p>URL Watchdog • Sniffing out downtime</p>
+    </div>
 
-  <div class="sites-grid" id="sitesGrid"></div>
+    <div class="user-bar">
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">A</div>
+        <span>Watching as <strong id="displayName">User</strong></span>
+      </div>
+      <button class="btn btn-logout" onclick="logout()">Switch User</button>
+    </div>
 
-  <div class="empty-state" id="emptyState" style="display: none;">
-    <div class="icon">🐕</div>
-    <p>No sites to watch yet. Add a URL above!</p>
-  </div>
+    <div class="form-row">
+      <input type="text" id="urlInput" placeholder="Enter URL to watch..." />
+      <button class="btn btn-add" onclick="addSite()">+ ADD</button>
+      <button class="btn btn-check-all" id="checkAllBtn" onclick="checkAllSites()">🐕 CHECK ALL</button>
+    </div>
 
-  <div class="footer">
-    <p>🐾 Down Boy - Direct HTTP checks from your server</p>
-    <p>10 second timeout • No CORS restrictions</p>
+    <div class="sites-grid" id="sitesGrid"></div>
+
+    <div class="empty-state" id="emptyState" style="display: none;">
+      <div class="icon">🐕</div>
+      <p>No sites to watch yet. Add a URL above!</p>
+    </div>
+
+    <div class="footer">
+      <p>🐾 Down Boy - Direct HTTP checks • Per-user watchlists</p>
+      <p>10 second timeout • Data persists on server</p>
+    </div>
   </div>
 
   <script>
     let sites = [];
     let checking = new Set();
+    let currentUser = null;
     
     const statusConfig = {
       up: { bg: '#0a2f1c', border: '#22c55e', text: '#4ade80', label: 'GOOD BOY', icon: '🐕', pulse: false },
@@ -306,10 +446,76 @@
       unknown: { bg: '#1a1a2e', border: '#4b5563', text: '#9ca3af', label: 'WAITING', icon: '🐾', pulse: false }
     };
     
+    // API helper with user header
+    async function api(endpoint, options = {}) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-User-Id': currentUser,
+        ...options.headers
+      };
+      const response = await fetch(endpoint, { ...options, headers });
+      if (!response.ok && response.status !== 204) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      if (response.status === 204) return null;
+      return response.json();
+    }
+    
+    // Auth functions
+    function login() {
+      const input = document.getElementById('usernameInput');
+      const name = input.value.trim();
+      if (!name) {
+        input.style.borderColor = '#ef4444';
+        return;
+      }
+      
+      // Normalize: lowercase, replace spaces with dashes
+      currentUser = name.toLowerCase().replace(/\s+/g, '-');
+      localStorage.setItem('downboy-user', currentUser);
+      localStorage.setItem('downboy-displayname', name);
+      
+      showApp(name);
+      loadSites();
+    }
+    
+    function logout() {
+      localStorage.removeItem('downboy-user');
+      localStorage.removeItem('downboy-displayname');
+      currentUser = null;
+      sites = [];
+      
+      document.getElementById('mainApp').classList.add('hidden');
+      document.getElementById('loginModal').classList.remove('hidden');
+      document.getElementById('usernameInput').value = '';
+    }
+    
+    function showApp(displayName) {
+      document.getElementById('loginModal').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+      document.getElementById('displayName').textContent = displayName;
+      document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+    }
+    
+    function checkExistingLogin() {
+      const savedUser = localStorage.getItem('downboy-user');
+      const savedName = localStorage.getItem('downboy-displayname');
+      
+      if (savedUser && savedName) {
+        currentUser = savedUser;
+        showApp(savedName);
+        loadSites();
+      }
+    }
+    
+    // Site management
     async function loadSites() {
-      const response = await fetch('/api/sites');
-      sites = await response.json();
-      render();
+      try {
+        sites = await api('/api/sites');
+        render();
+      } catch (err) {
+        console.error('Failed to load sites:', err);
+      }
     }
     
     async function addSite() {
@@ -321,36 +527,43 @@
         url = 'https://' + url;
       }
       
-      const response = await fetch('/api/sites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      });
-      
-      const newSite = await response.json();
-      sites.push(newSite);
-      input.value = '';
-      render();
+      try {
+        const newSite = await api('/api/sites', {
+          method: 'POST',
+          body: JSON.stringify({ url })
+        });
+        sites.push(newSite);
+        input.value = '';
+        render();
+      } catch (err) {
+        console.error('Failed to add site:', err);
+      }
     }
     
     async function removeSite(id) {
-      await fetch(`/api/sites/${id}`, { method: 'DELETE' });
-      sites = sites.filter(s => s.id !== id);
-      render();
+      try {
+        await api(`/api/sites/${id}`, { method: 'DELETE' });
+        sites = sites.filter(s => s.id !== id);
+        render();
+      } catch (err) {
+        console.error('Failed to remove site:', err);
+      }
     }
     
     async function checkSite(site) {
       checking.add(site.id);
       render();
       
-      const response = await fetch('/api/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: site.url })
-      });
-      
-      const result = await response.json();
-      Object.assign(site, result);
+      try {
+        const result = await api('/api/check', {
+          method: 'POST',
+          body: JSON.stringify({ url: site.url })
+        });
+        Object.assign(site, result);
+      } catch (err) {
+        site.status = 'error';
+        site.error = err.message;
+      }
       
       checking.delete(site.id);
       render();
@@ -361,10 +574,12 @@
       btn.disabled = true;
       btn.textContent = '🔍 SNIFFING...';
       
-      const response = await fetch('/api/check-all');
-      const results = await response.json();
-      
-      sites = results;
+      try {
+        const results = await api('/api/check-all');
+        sites = results;
+      } catch (err) {
+        console.error('Failed to check all:', err);
+      }
       
       btn.disabled = false;
       btn.textContent = '🐕 CHECK ALL';
@@ -399,8 +614,8 @@
               ${isChecking ? '🔍' : config.icon}
             </div>
             <div class="site-info">
-              <h3>${site.name}</h3>
-              <p>${site.url}</p>
+              <h3>${escapeHtml(site.name)}</h3>
+              <p>${escapeHtml(site.url)}</p>
             </div>
             <div class="status-badge" style="color: ${config.text};">
               ${isChecking ? 'CHECKING...' : config.label}
@@ -421,13 +636,23 @@
       }).join('');
     }
     
-    // Handle enter key
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Event listeners
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') addSite();
     });
     
+    document.getElementById('usernameInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') login();
+    });
+    
     // Initial load
-    loadSites();
+    checkExistingLogin();
   </script>
 </body>
 </html>

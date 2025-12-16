@@ -1,61 +1,138 @@
-# 🐕 Down Boy - URL Watchdog
+# 🐕 Down Boy v2 - URL Watchdog
 
-A simple, no-dependency Node.js server that checks if URLs/sites are responding.
+A simple, zero-dependency Node.js server for checking if URLs/sites are responding.  
+**Now with per-user watchlists!**
 
 ## Quick Start
 
 ```bash
-# Navigate to the folder
-cd down-boy-server
-
-# Run it (no npm install needed!)
+cd down-boy-v2
 node server.js
 ```
 
-Then open **http://localhost:3000** in your browser.
+Open **http://localhost:3000** (or your server IP) in a browser.
 
-## Features
+## What's New in v2
 
-- **Direct HTTP checks** - No CORS proxy BS, checks sites directly from the server
-- **10 second timeout** - Catches slow/hanging sites like Footprints
-- **Self-signed cert support** - Works with internal sites that have self-signed SSL
-- **HTTP status codes** - Shows actual response codes (200, 404, 500, etc.)
-- **Response time tracking** - See how slow that site really is
+- **Per-user site lists** - Each team member gets their own watchlist
+- **Persistent storage** - Sites saved to `sites-data.json`, survives restarts
+- **User identification** - Simple name-based login (no passwords)
 
-## API Endpoints
+## How It Works
 
-If you want to script this or integrate elsewhere:
+```
+┌──────────────┐                    ┌──────────────┐                  ┌─────────────┐
+│   Browser    │  ──── HTTP ────►   │  Down Boy    │  ── HTTP HEAD ─► │ Target Site │
+│  (Frontend)  │  X-User-Id header  │   Server     │   Direct check   │             │
+└──────────────┘                    └──────────────┘                  └─────────────┘
+                                           │
+                                           ▼
+                                    ┌──────────────┐
+                                    │ sites-data   │
+                                    │    .json     │
+                                    └──────────────┘
+```
+
+1. User enters their name (stored in browser localStorage)
+2. All API requests include `X-User-Id` header
+3. Server stores each user's sites separately in JSON file
+4. Site checks are direct HTTP HEAD requests (no CORS issues)
+
+## Team Deployment
+
+Run on a shared server everyone can access:
+
+```bash
+# On a server (e.g., 10.0.0.50)
+node server.js
+
+# Team members access via browser:
+# http://10.0.0.50:3000
+```
+
+Each person enters their name and gets their own watchlist.
+
+## Data Storage
+
+Sites are stored in `sites-data.json`:
+
+```json
+{
+  "users": {
+    "andrew": {
+      "sites": [
+        { "id": 1234567890, "url": "https://footprints.alamo.edu", "name": "Footprints" }
+      ]
+    },
+    "mike": {
+      "sites": [
+        { "id": 1234567891, "url": "https://example.com", "name": "example.com" }
+      ]
+    }
+  }
+}
+```
+
+## API Reference
+
+All endpoints require `X-User-Id` header (except `/api/check` and `/api/users`).
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/sites` | GET | List all monitored sites |
-| `/api/sites` | POST | Add a site `{ "url": "https://...", "name": "optional" }` |
+| `/api/sites` | GET | Get current user's sites |
+| `/api/sites` | POST | Add site: `{ "url": "https://...", "name": "optional" }` |
 | `/api/sites/:id` | DELETE | Remove a site |
-| `/api/check` | POST | Check a single URL `{ "url": "https://..." }` |
-| `/api/check-all` | GET | Check all monitored sites at once |
+| `/api/check` | POST | Check any URL: `{ "url": "https://..." }` |
+| `/api/check-all` | GET | Check all of current user's sites |
+| `/api/users` | GET | List all users and site counts |
 
-## Example: Quick CLI Check
+### CLI Examples
 
 ```bash
+# Check a site (no auth needed)
 curl -X POST http://localhost:3000/api/check \
   -H "Content-Type: application/json" \
   -d '{"url": "https://footprints.alamo.edu"}'
+
+# Get a user's sites
+curl http://localhost:3000/api/sites \
+  -H "X-User-Id: andrew"
+
+# Add a site for a user
+curl -X POST http://localhost:3000/api/sites \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: andrew" \
+  -d '{"url": "https://google.com"}'
+
+# See all users
+curl http://localhost:3000/api/users
 ```
 
-## Running as a Service (Optional)
-
-To keep it running in the background:
+## Running as a Service
 
 ```bash
-# Using nohup
+# Simple background process
 nohup node server.js > downboy.log 2>&1 &
 
-# Or with PM2 (if installed)
+# With PM2 (if installed)
 pm2 start server.js --name "down-boy"
+
+# As a systemd service (create /etc/systemd/system/downboy.service)
 ```
+
+## Configuration
+
+Edit these constants in `server.js`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | 3000 | HTTP port |
+| `TIMEOUT_MS` | 10000 | Request timeout (10 seconds) |
+| `DATA_FILE` | `./sites-data.json` | Storage location |
 
 ## Notes
 
-- Sites are stored in memory only - they reset when you restart the server
-- Want persistence? Let me know and I can add a JSON file or SQLite store
-- Default timeout is 10 seconds (change TIMEOUT_MS in server.js)
+- No authentication (yet) - anyone with the URL can access
+- User IDs are normalized (lowercase, spaces → dashes)
+- Sites survive server restarts via JSON file
+- Self-signed SSL certs are accepted (common for internal sites)
