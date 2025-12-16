@@ -46,7 +46,9 @@ function setUserSites(userId, sites) {
   saveData(data);
 }
 
-async function checkSite(siteUrl, method = 'HEAD') {
+async function checkSite(siteUrl, method = 'GET', redirectCount = 0) {
+  const MAX_REDIRECTS = 5;
+  
   return new Promise((resolve) => {
     const startTime = Date.now();
     
@@ -57,13 +59,23 @@ async function checkSite(siteUrl, method = 'HEAD') {
       const req = protocol.request({
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-        path: parsedUrl.pathname + parsedUrl.search,
+        path: parsedUrl.pathname + parsedUrl.search || '/',
         method: method,
         timeout: TIMEOUT_MS,
         rejectUnauthorized: false,
         headers: {
+          'Host': parsedUrl.hostname,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Cache-Control': 'max-age=0'
         }
       }, (res) => {
         // Consume response data to free up memory
@@ -71,9 +83,26 @@ async function checkSite(siteUrl, method = 'HEAD') {
         
         const responseTime = Date.now() - startTime;
         
-        // If HEAD request got 403/405, retry with GET
-        if (method === 'HEAD' && (res.statusCode === 403 || res.statusCode === 405)) {
-          resolve(checkSite(siteUrl, 'GET'));
+        // Handle redirects
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          if (redirectCount >= MAX_REDIRECTS) {
+            resolve({
+              status: 'error',
+              statusCode: res.statusCode,
+              responseTime,
+              error: 'Too many redirects',
+              lastChecked: new Date().toISOString()
+            });
+            return;
+          }
+          
+          // Build absolute URL from redirect location
+          let redirectUrl = res.headers.location;
+          if (redirectUrl.startsWith('/')) {
+            redirectUrl = `${parsedUrl.protocol}//${parsedUrl.host}${redirectUrl}`;
+          }
+          
+          resolve(checkSite(redirectUrl, method, redirectCount + 1));
           return;
         }
         
@@ -96,11 +125,6 @@ async function checkSite(siteUrl, method = 'HEAD') {
       });
       
       req.on('error', (err) => {
-        // If HEAD request failed entirely, retry with GET
-        if (method === 'HEAD') {
-          resolve(checkSite(siteUrl, 'GET'));
-          return;
-        }
         resolve({
           status: 'error',
           statusCode: null,
